@@ -29,6 +29,18 @@ button { padding: 10px 20px; background: #007acc; color: white; border: none; bo
   border-radius: 6px;
 }
 
+/* Metadata styling */
+#metadata-box {
+  background: #eef4ff;
+  padding: 12px;
+  border-radius: 6px;
+  margin-bottom: 15px;
+  line-height: 1.4em;
+}
+#metadata-box b {
+  color: #003c74;
+}
+
 /* Fullscreen */
 #fullscreenModal {
   display:none;
@@ -67,6 +79,9 @@ button { padding: 10px 20px; background: #007acc; color: white; border: none; bo
         </h2>
 
         <div id="progress-container"><div id="progress-bar"></div></div>
+
+        <!-- NEW: Metadata block -->
+        <div id="metadata-box"></div>
 
         <h3>AI Transcription</h3>
         <div id="aiTranscription" style="white-space:pre-wrap;background:#eee;padding:10px;"></div>
@@ -114,20 +129,50 @@ async function loadData() {
 
 
 // ---------------------------------------
-// Load an entry
+// Load an entry (includes metadata + images)
 // ---------------------------------------
 function loadEntry(i) {
     currentIndex = i;
     const entry = entries[i];
 
-    // update UI
     document.getElementById("entry-number").innerText = entry.id;
-    document.getElementById("aiTranscription").innerText = entry.transcription_ai;
 
-    // load images directly from data.json
+    // -----------------------------
+    // LOAD METADATA
+    // -----------------------------
+    const objectUrl = `https://collection.sciencemuseumgroup.org.uk/objects/${entry.col1}`;
+
+    const metadataHTML = `
+        <div><b>UID:</b> ${entry.col1} &nbsp; 
+             <a href="${objectUrl}" target="_blank">(open object page)</a></div>
+        <div><b>Identifier:</b> ${entry.col2}</div>
+        <div><b>Title:</b> ${entry.col3}</div>
+        <div><b>Description:</b> ${entry.col4}</div>
+        <div><b>Category:</b> ${entry.col5}</div>
+        <div><b>Material:</b> ${entry.col6}</div>
+        <div><b>Object Name:</b> ${entry.col7}</div>
+        <div><b>Date:</b> ${entry.col8}</div>
+        <div><b>Place:</b> ${entry.col9}</div>
+        <div><b>Maker:</b> ${entry.col10}</div>
+        <div><b>Image filename:</b> ${entry.col11}</div>
+    `;
+
+    document.getElementById("metadata-box").innerHTML = metadataHTML;
+
+    // -----------------------------
+    // IMAGES
+    // -----------------------------
     document.getElementById("img1").src = entry.link;
     document.getElementById("img2").src = entry.link_large;
 
+    // -----------------------------
+    // TRANSCRIPTION
+    // -----------------------------
+    document.getElementById("aiTranscription").innerText = entry.transcription_ai;
+
+    // -----------------------------
+    // Progress
+    // -----------------------------
     updateProgress();
 }
 
@@ -148,7 +193,7 @@ function updateProgress() {
 
 
 // ---------------------------------------
-// Fullscreen
+// Fullscreen Image
 // ---------------------------------------
 function openFullscreen(id) {
     document.getElementById("fullscreenImg").src =
