@@ -92,7 +92,7 @@ button { padding: 10px 20px; background: #007acc; color: white; border: none; bo
 // ---------------------------------------
 // CONFIG
 // ---------------------------------------
-const GOOGLE_WEBAPP_URL = "https://script.google.com/macros/s/AKfycbw4mNp1fT20WeEM-zLRjXh5vQfcukWXyg785utBnFusXfkOy5s5LLve0vC2z2M-A273/exec";
+const GOOGLE_WEBAPP_URL = "https://script.google.com/macros/s/AKfycbxaoGIc1cyrJe79sKLgHENBiHBQyT6p3hbfrZLj3xhobyONBHZgh9teHpSuTtHDGRKt/exec";
 const SECRET_TOKEN = "X4p9FJ83kf2AqxZ91mY7BQ2";
 const BATCH_SIZE = 50;
 
@@ -116,41 +116,19 @@ async function loadData() {
 // ---------------------------------------
 // Load an entry
 // ---------------------------------------
-async function loadEntry(i) {
+function loadEntry(i) {
     currentIndex = i;
     const entry = entries[i];
 
+    // update UI
     document.getElementById("entry-number").innerText = entry.id;
     document.getElementById("aiTranscription").innerText = entry.transcription_ai;
 
+    // load images directly from data.json
+    document.getElementById("img1").src = entry.link;
+    document.getElementById("img2").src = entry.link_large;
+
     updateProgress();
-    await loadImages(entry);
-}
-
-
-// ---------------------------------------
-// IMAGE FETCHING WITH SECURE TOKEN
-// ---------------------------------------
-async function loadImages(entry) {
-    const url =
-      `${GOOGLE_WEBAPP_URL}?type=image&entry_id=${entry.id}&secret=${SECRET_TOKEN}`;
-
-    try {
-        const response = await fetch(url);
-        const data = await response.json();
-
-        if (data.images && data.images.length > 0) {
-            document.getElementById("img1").src = data.images[0];
-            document.getElementById("img2").src = data.images[1] || data.images[0];
-        } else {
-            document.getElementById("img1").src = entry.link;
-            document.getElementById("img2").src = entry.link_large;
-        }
-
-    } catch {
-        document.getElementById("img1").src = entry.link;
-        document.getElementById("img2").src = entry.link_large;
-    }
 }
 
 
