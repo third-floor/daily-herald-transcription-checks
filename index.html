@@ -2,272 +2,226 @@
 <html lang="en">
 
 <head>
-    <meta charset="UTF-8">
-    <title>Transcription Validation</title>
+<meta charset="UTF-8">
+<title>Transcription Validation</title>
 
-    <style>
-        body {
-            margin: 0;
-            font-family: Arial, sans-serif;
-            background: #f4f4f4;
-        }
+<style>
+body { margin: 0; font-family: Arial; background: #f4f4f4; }
+.container { display: flex; padding: 20px; gap: 20px; }
+.left-panel { width: 40%; display: flex; flex-direction: column; gap: 20px; }
+.image-box img { width: 100%; border-radius: 4px; cursor: zoom-in; }
+.right-panel { width: 60%; background: white; padding: 20px; border-radius: 8px; }
+textarea { width: 100%; height: 80px; }
+button { padding: 10px 20px; background: #007acc; color: white; border: none; border-radius: 4px; cursor: pointer; }
 
-        .container {
-            display: flex;
-            padding: 20px;
-            gap: 20px;
-        }
+/* Progress bar */
+#progress-container {
+  width: 100%;
+  background: #ddd;
+  height: 12px;
+  border-radius: 6px;
+  margin-bottom: 10px;
+}
+#progress-bar {
+  height: 100%;
+  width: 0%;
+  background: #007acc;
+  border-radius: 6px;
+}
 
-        .left-panel {
-            width: 40%;
-            display: flex;
-            flex-direction: column;
-            gap: 20px;
-        }
-
-        .image-box img {
-            width: 100%;
-            border-radius: 4px;
-            cursor: zoom-in;
-        }
-
-        .right-panel {
-            width: 60%;
-            background: white;
-            padding: 20px;
-            border-radius: 8px;
-        }
-
-        .metadata-table td {
-            padding: 4px 10px;
-        }
-
-        textarea {
-            width: 100%;
-            height: 80px;
-            margin-top: 10px;
-        }
-
-        .controls {
-            margin-top: 20px;
-            display: flex;
-            gap: 20px;
-        }
-
-        button {
-            padding: 10px 20px;
-            background: #007acc;
-            color: white;
-            border: none;
-            border-radius: 4px;
-            cursor: pointer;
-        }
-
-        button:hover {
-            background: #005fa3;
-        }
-
-        /* Fullscreen modal */
-        #fullscreenModal {
-            display: none;
-            position: fixed;
-            inset: 0;
-            background: rgba(0, 0, 0, 0.95);
-            justify-content: center;
-            align-items: center;
-            z-index: 999;
-        }
-
-        #fullscreenModal img {
-            max-width: 95%;
-            max-height: 95%;
-        }
-    </style>
+/* Fullscreen */
+#fullscreenModal {
+  display:none;
+  position:fixed;
+  inset:0;
+  background:rgba(0,0,0,0.95);
+  justify-content:center;
+  align-items:center;
+  z-index:999;
+}
+#fullscreenModal img {
+  max-width:95%;
+  max-height:95%;
+}
+</style>
 </head>
 
 <body>
 
-    <!-- Fullscreen image viewer -->
-    <div id="fullscreenModal" onclick="closeFullscreen()">
-        <img id="fullscreenImg" src="">
+<div id="fullscreenModal" onclick="closeFullscreen()">
+    <img id="fullscreenImg">
+</div>
+
+<div class="container">
+
+    <div class="left-panel">
+        <div class="image-box"><img id="img1" onclick="openFullscreen('img1')"></div>
+        <div class="image-box"><img id="img2" onclick="openFullscreen('img2')"></div>
     </div>
 
-    <div class="container">
+    <div class="right-panel">
 
-        <!-- LEFT PANEL (images) -->
-        <div class="left-panel">
-            <div class="image-box">
-                <img id="img1" src="" onclick="openFullscreen('img1')">
-            </div>
-            <div class="image-box">
-                <img id="img2" src="" onclick="openFullscreen('img2')">
-            </div>
-        </div>
+        <h2>
+          Entry <span id="entry-number"></span>  
+          <span style="float:right;" id="progress-text"></span>
+        </h2>
 
-        <!-- RIGHT PANEL (metadata + transcription + controls) -->
-        <div class="right-panel">
+        <div id="progress-container"><div id="progress-bar"></div></div>
 
-            <h2>Entry <span id="entry-number"></span></h2>
+        <h3>AI Transcription</h3>
+        <div id="aiTranscription" style="white-space:pre-wrap;background:#eee;padding:10px;"></div>
 
-            <h3>Metadata</h3>
-            <table class="metadata-table" id="metadata"></table>
+        <h3>Validation</h3>
+        <label><input type="radio" name="correctness" value="true"> Transcription is correct</label><br>
+        <label><input type="radio" name="correctness" value="false"> Transcription is not correct</label>
 
-            <h3>AI Transcription</h3>
-            <div id="aiTranscription" style="white-space: pre-wrap; padding:10px; background:#eee;"></div>
+        <h3>Comment</h3>
+        <textarea id="comment"></textarea>
 
-            <h3>Validation</h3>
-            <label><input type="radio" name="correctness" value="true"> Transcription is correct</label><br>
-            <label><input type="radio" name="correctness" value="false"> Transcription is not correct</label>
+        <h3>Corrected Transcription</h3>
+        <textarea id="correctedText"></textarea>
 
-            <h3>Comment</h3>
-            <textarea id="comment"></textarea>
-
-            <h3>Corrected Transcription (if incorrect)</h3>
-            <textarea id="correctedText"></textarea>
-
-            <div class="controls">
-                <button onclick="submitResponse()">Submit</button>
-                <button onclick="skipEntry()">Skip</button>
-            </div>
-
-        </div>
+        <button onclick="submitResponse()">Submit</button>
+        <button onclick="skipEntry()">Skip</button>
 
     </div>
 
-    <script>
-        // ---------------------------
-        // CONFIG
-        // ---------------------------
-        const GOOGLE_WEBAPP_URL = "https://script.google.com/macros/s/AKfycbzdbqYiVeBfXzC89t7-mR_s5qs2zigXLtRuqlBWcfNPyZKcqlNCHNkasw_YqpOXgAP0/exec";
-        const BATCH_SIZE = 50;
+</div>
 
-        let entries = [];
-        let currentIndex = 0;
+<script>
+// ---------------------------------------
+// CONFIG
+// ---------------------------------------
+const GOOGLE_WEBAPP_URL = "https://script.google.com/macros/s/AKfycbw4mNp1fT20WeEM-zLRjXh5vQfcukWXyg785utBnFusXfkOy5s5LLve0vC2z2M-A273/exec";
+const SECRET_TOKEN = "X4p9FJ83kf2AqxZ91mY7BQ2";
+const BATCH_SIZE = 50;
 
-        // ---------------------------
-        // INITIAL LOAD
-        // ---------------------------
+let entries = [];
+let currentIndex = 0;
 
-        async function loadData() {
-            const response = await fetch("data.json");
-            const json = await response.json();
 
-            // Only show entries not marked completed
-            entries = json.filter(e => !e.completed);
+// ---------------------------------------
+// Load dataset
+// ---------------------------------------
+async function loadData() {
+    const response = await fetch("data.json");
+    const json = await response.json();
 
-            // Take first 50
-            entries = entries.slice(0, BATCH_SIZE);
+    entries = json.filter(e => !e.completed).slice(0, BATCH_SIZE);
 
-            if (entries.length === 0) {
-                alert("No available entries left!");
-                return;
-            }
+    loadEntry(0);
+}
 
-            loadEntry(0);
-        }
 
-        // ---------------------------
-        // DISPLAY AN ENTRY
-        // ---------------------------
+// ---------------------------------------
+// Load an entry
+// ---------------------------------------
+async function loadEntry(i) {
+    currentIndex = i;
+    const entry = entries[i];
 
-        function loadEntry(i) {
-            currentIndex = i;
-            const entry = entries[i];
+    document.getElementById("entry-number").innerText = entry.id;
+    document.getElementById("aiTranscription").innerText = entry.transcription_ai;
 
-            document.getElementById("entry-number").innerText = entry.id;
+    updateProgress();
+    await loadImages(entry);
+}
 
-            // Metadata (cols 1–11)
-            const metaTable = document.getElementById("metadata");
-            metaTable.innerHTML = "";
-            for (let k = 1; k <= 11; k++) {
-                let row = metaTable.insertRow();
-                row.insertCell().innerText = `Column ${k}`;
-                row.insertCell().innerText = entry["col" + k];
-            }
 
-            document.getElementById("aiTranscription").innerText =
-                entry.transcription_ai || "";
+// ---------------------------------------
+// IMAGE FETCHING WITH SECURE TOKEN
+// ---------------------------------------
+async function loadImages(entry) {
+    const url =
+      `${GOOGLE_WEBAPP_URL}?type=image&entry_id=${entry.id}&secret=${SECRET_TOKEN}`;
 
-            // Set images
+    try {
+        const response = await fetch(url);
+        const data = await response.json();
+
+        if (data.images && data.images.length > 0) {
+            document.getElementById("img1").src = data.images[0];
+            document.getElementById("img2").src = data.images[1] || data.images[0];
+        } else {
             document.getElementById("img1").src = entry.link;
             document.getElementById("img2").src = entry.link_large;
-
-            // Clear fields
-            document.querySelectorAll("input[name='correctness']").forEach(x => x.checked = false);
-            document.getElementById("comment").value = "";
-            document.getElementById("correctedText").value = "";
         }
 
-        // ---------------------------
-        // FULLSCREEN IMAGE VIEWER
-        // ---------------------------
+    } catch {
+        document.getElementById("img1").src = entry.link;
+        document.getElementById("img2").src = entry.link_large;
+    }
+}
 
-        function openFullscreen(id) {
-            const img = document.getElementById(id);
-            document.getElementById("fullscreenImg").src = img.src;
-            document.getElementById("fullscreenModal").style.display = "flex";
-        }
 
-        function closeFullscreen() {
-            document.getElementById("fullscreenModal").style.display = "none";
-        }
+// ---------------------------------------
+// Progress Bar
+// ---------------------------------------
+function updateProgress() {
+    const total = entries.length;
+    const remaining = total - currentIndex;
+    const percent = Math.round((currentIndex / total) * 100);
 
-        // ---------------------------
-        // SUBMIT RESPONSE
-        // ---------------------------
+    document.getElementById("progress-text").innerText =
+      `${remaining} of ${total} remaining`;
 
-        async function submitResponse() {
-            const entry = entries[currentIndex];
+    document.getElementById("progress-bar").style.width = percent + "%";
+}
 
-            const correctness = document.querySelector("input[name='correctness']:checked");
-            if (!correctness) {
-                alert("Please select whether the transcription is correct.");
-                return;
-            }
 
-            const payload = {
-                entry_id: entry.id,
-                user_id: localStorage.getItem("user_id") || "anonymous",
-                correct: correctness.value === "true",
-                comment: document.getElementById("comment").value,
-                corrected_transcription: document.getElementById("correctedText").value
-            };
+// ---------------------------------------
+// Fullscreen
+// ---------------------------------------
+function openFullscreen(id) {
+    document.getElementById("fullscreenImg").src =
+      document.getElementById(id).src;
+    document.getElementById("fullscreenModal").style.display = "flex";
+}
+function closeFullscreen() {
+    document.getElementById("fullscreenModal").style.display = "none";
+}
 
-            // POST to Google Web App
-            fetch(GOOGLE_WEBAPP_URL, {
-                method: "POST",
-                mode: "no-cors",
-                headers: { "Content-Type": "application/json" },
-                body: JSON.stringify(payload)
-            });
 
-            alert("Saved!");
+// ---------------------------------------
+// Submit response
+// ---------------------------------------
+async function submitResponse() {
+    const entry = entries[currentIndex];
+    const correctness = document.querySelector("input[name='correctness']:checked");
 
-            nextEntry();
-        }
+    if (!correctness) { alert("Select correctness first."); return; }
 
-        // ---------------------------
-        // NEXT / SKIP ENTRY
-        // ---------------------------
+    const payload = {
+        secret: SECRET_TOKEN,
+        entry_id: entry.id,
+        user_id: localStorage.getItem("user_id") || "anon",
+        correct: correctness.value,
+        comment: document.getElementById("comment").value,
+        corrected_transcription: document.getElementById("correctedText").value
+    };
 
-        function skipEntry() {
-            nextEntry();
-        }
+    fetch(GOOGLE_WEBAPP_URL, {
+        method: "POST",
+        mode: "no-cors",
+        headers: {"Content-Type":"application/json"},
+        body: JSON.stringify(payload)
+    });
 
-        function nextEntry() {
-            if (currentIndex + 1 < entries.length) {
-                loadEntry(currentIndex + 1);
-            } else {
-                alert("You have finished this batch!");
-            }
-        }
+    nextEntry();
+}
 
-        // ---------------------------
-        // START
-        // ---------------------------
-        loadData();
-    </script>
+function skipEntry() { nextEntry(); }
+
+function nextEntry() {
+    if (currentIndex + 1 < entries.length) {
+        loadEntry(currentIndex + 1);
+    } else {
+        alert("Batch completed!");
+    }
+}
+
+loadData();
+</script>
 
 </body>
-
 </html>
