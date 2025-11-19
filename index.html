@@ -1,0 +1,273 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <title>Transcription Validation</title>
+
+    <style>
+        body {
+            margin: 0;
+            font-family: Arial, sans-serif;
+            background: #f4f4f4;
+        }
+
+        .container {
+            display: flex;
+            padding: 20px;
+            gap: 20px;
+        }
+
+        .left-panel {
+            width: 40%;
+            display: flex;
+            flex-direction: column;
+            gap: 20px;
+        }
+
+        .image-box img {
+            width: 100%;
+            border-radius: 4px;
+            cursor: zoom-in;
+        }
+
+        .right-panel {
+            width: 60%;
+            background: white;
+            padding: 20px;
+            border-radius: 8px;
+        }
+
+        .metadata-table td {
+            padding: 4px 10px;
+        }
+
+        textarea {
+            width: 100%;
+            height: 80px;
+            margin-top: 10px;
+        }
+
+        .controls {
+            margin-top: 20px;
+            display: flex;
+            gap: 20px;
+        }
+
+        button {
+            padding: 10px 20px;
+            background: #007acc;
+            color: white;
+            border: none;
+            border-radius: 4px;
+            cursor: pointer;
+        }
+
+        button:hover {
+            background: #005fa3;
+        }
+
+        /* Fullscreen modal */
+        #fullscreenModal {
+            display: none;
+            position: fixed;
+            inset: 0;
+            background: rgba(0, 0, 0, 0.95);
+            justify-content: center;
+            align-items: center;
+            z-index: 999;
+        }
+
+        #fullscreenModal img {
+            max-width: 95%;
+            max-height: 95%;
+        }
+    </style>
+</head>
+
+<body>
+
+    <!-- Fullscreen image viewer -->
+    <div id="fullscreenModal" onclick="closeFullscreen()">
+        <img id="fullscreenImg" src="">
+    </div>
+
+    <div class="container">
+
+        <!-- LEFT PANEL (images) -->
+        <div class="left-panel">
+            <div class="image-box">
+                <img id="img1" src="" onclick="openFullscreen('img1')">
+            </div>
+            <div class="image-box">
+                <img id="img2" src="" onclick="openFullscreen('img2')">
+            </div>
+        </div>
+
+        <!-- RIGHT PANEL (metadata + transcription + controls) -->
+        <div class="right-panel">
+
+            <h2>Entry <span id="entry-number"></span></h2>
+
+            <h3>Metadata</h3>
+            <table class="metadata-table" id="metadata"></table>
+
+            <h3>AI Transcription</h3>
+            <div id="aiTranscription" style="white-space: pre-wrap; padding:10px; background:#eee;"></div>
+
+            <h3>Validation</h3>
+            <label><input type="radio" name="correctness" value="true"> Transcription is correct</label><br>
+            <label><input type="radio" name="correctness" value="false"> Transcription is not correct</label>
+
+            <h3>Comment</h3>
+            <textarea id="comment"></textarea>
+
+            <h3>Corrected Transcription (if incorrect)</h3>
+            <textarea id="correctedText"></textarea>
+
+            <div class="controls">
+                <button onclick="submitResponse()">Submit</button>
+                <button onclick="skipEntry()">Skip</button>
+            </div>
+
+        </div>
+
+    </div>
+
+    <script>
+        // ---------------------------
+        // CONFIG
+        // ---------------------------
+        const GOOGLE_WEBAPP_URL = "PASTE_YOUR_GOOGLE_WEB_APP_URL_HERE";
+        const BATCH_SIZE = 50;
+
+        let entries = [];
+        let currentIndex = 0;
+
+        // ---------------------------
+        // INITIAL LOAD
+        // ---------------------------
+
+        async function loadData() {
+            const response = await fetch("data.json");
+            const json = await response.json();
+
+            // Only show entries not marked completed
+            entries = json.filter(e => !e.completed);
+
+            // Take first 50
+            entries = entries.slice(0, BATCH_SIZE);
+
+            if (entries.length === 0) {
+                alert("No available entries left!");
+                return;
+            }
+
+            loadEntry(0);
+        }
+
+        // ---------------------------
+        // DISPLAY AN ENTRY
+        // ---------------------------
+
+        function loadEntry(i) {
+            currentIndex = i;
+            const entry = entries[i];
+
+            document.getElementById("entry-number").innerText = entry.id;
+
+            // Metadata (cols 1–11)
+            const metaTable = document.getElementById("metadata");
+            metaTable.innerHTML = "";
+            for (let k = 1; k <= 11; k++) {
+                let row = metaTable.insertRow();
+                row.insertCell().innerText = `Column ${k}`;
+                row.insertCell().innerText = entry["col" + k];
+            }
+
+            document.getElementById("aiTranscription").innerText =
+                entry.transcription_ai || "";
+
+            // Set images
+            document.getElementById("img1").src = entry.link;
+            document.getElementById("img2").src = entry.link_large;
+
+            // Clear fields
+            document.querySelectorAll("input[name='correctness']").forEach(x => x.checked = false);
+            document.getElementById("comment").value = "";
+            document.getElementById("correctedText").value = "";
+        }
+
+        // ---------------------------
+        // FULLSCREEN IMAGE VIEWER
+        // ---------------------------
+
+        function openFullscreen(id) {
+            const img = document.getElementById(id);
+            document.getElementById("fullscreenImg").src = img.src;
+            document.getElementById("fullscreenModal").style.display = "flex";
+        }
+
+        function closeFullscreen() {
+            document.getElementById("fullscreenModal").style.display = "none";
+        }
+
+        // ---------------------------
+        // SUBMIT RESPONSE
+        // ---------------------------
+
+        async function submitResponse() {
+            const entry = entries[currentIndex];
+
+            const correctness = document.querySelector("input[name='correctness']:checked");
+            if (!correctness) {
+                alert("Please select whether the transcription is correct.");
+                return;
+            }
+
+            const payload = {
+                entry_id: entry.id,
+                user_id: localStorage.getItem("user_id") || "anonymous",
+                correct: correctness.value === "true",
+                comment: document.getElementById("comment").value,
+                corrected_transcription: document.getElementById("correctedText").value
+            };
+
+            // POST to Google Web App
+            fetch(GOOGLE_WEBAPP_URL, {
+                method: "POST",
+                mode: "no-cors",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify(payload)
+            });
+
+            alert("Saved!");
+
+            nextEntry();
+        }
+
+        // ---------------------------
+        // NEXT / SKIP ENTRY
+        // ---------------------------
+
+        function skipEntry() {
+            nextEntry();
+        }
+
+        function nextEntry() {
+            if (currentIndex + 1 < entries.length) {
+                loadEntry(currentIndex + 1);
+            } else {
+                alert("You have finished this batch!");
+            }
+        }
+
+        // ---------------------------
+        // START
+        // ---------------------------
+        loadData();
+    </script>
+
+</body>
+
+</html>
